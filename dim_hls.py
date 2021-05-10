@@ -1,4 +1,5 @@
 import lightpack, configparser, os, colorsys
+from dithering import *
 from time import sleep
 from PIL import Image
 
@@ -32,16 +33,18 @@ lightpack_profile = config.get('Lightpack', 'profile')
 lp = lightpack.lightpack(lightpack_host, lightpack_port, None, lightpack_api_key)
 lp.connect()
 
+num_leds = lp.getCountLeds()
+
 brightness_dim = 0.6
 start_color = colorsys.rgb_to_hls(255/255, 135/255, 55/255)
 end_color = colorsys.rgb_to_hls((255 * brightness_dim)/255, (106 * brightness_dim)/255, (0 * brightness_dim)/255)
-steps = 100
+steps = 256
 
 gamma = 1.0
 B_START = start_color[1] ** (1 / gamma)
 B_END = end_color[1] ** (1 / gamma)
 
-img = Image.new('RGB', (steps, int(steps / 2)))
+img = Image.new('RGB', (steps, num_leds))
 ld = img.load()
 
 lp.lock()
@@ -56,21 +59,21 @@ for i in range(steps):
     h = start_color[0]
     l = B ** gamma
     s = start_color[2]
-    
-    r, g, b = tuple(round(i * 255) for i in colorsys.hls_to_rgb(h, l, s))
+
+    r, g, b = tuple(i * 255 for i in colorsys.hls_to_rgb(h, l, s))
 
     # print(B)
     print(((0.299 * r / 255) ** gamma + (0.587 * g / 255) ** gamma + (0.114 * b / 255) ** gamma) ** (1 / gamma))
     # print(r, g, b)
 
+    frame = dither(r, g, b, num_leds)
+
     # generate gradient image
-    for y in range(img.size[1]):
-        ld[i, y] = r, g, b
+    for y in range(num_leds):
+        ld[i, y] = frame[y]
 
-    # lp.setSmooth(255)
-    lp.setColorToAll(r, g, b)
+    lp.setFrame(frame)
     sleep(0.1)
-
 
 # gaussian blur
 # blur = Image.new('RGB', (img.size[0] - 2, img.size[1]))
