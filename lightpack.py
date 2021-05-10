@@ -40,6 +40,18 @@ class lightpack:
 		status = status.split(':')[1]
 		return status
 
+	def getGamma(self):
+		self.connection.send(b"getgamma\n")
+		status = self.__readResult()
+		status = status.split(':')[1]
+		return status
+
+	def getGamma(self):
+		self.connection.send(b"getbrightness\n")
+		status = self.__readResult()
+		status = status.split(':')[1]
+		return status
+
 	# BROKEN IN VERSION 5.11.2.27
 	def getCountLeds(self):
 		# self.connection.send(b"getcountleds\n")
