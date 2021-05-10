@@ -42,10 +42,11 @@ class Dimmer:
 
         print((r, g, b), brightness)
 
-        # self.lp.lock()
+        self.lp.lock()
         self.lp.setBrightness(round(brightness))
         self.lp.setColorToAll(r, g, b)
-        # self.lp.unlock()
+        self.lp.setPersistOnUnlock(True)
+        self.lp.unlock()
 
     def hsv_rgb(self, h, s, v):
         return tuple(round(i * 255) for i in colorsys.hsv_to_rgb(h/255, s/255, v/255))
@@ -81,7 +82,6 @@ class Dimmer:
         return scale * end + (1 - scale) * start
 
     def run(self):
-        self.lp.lock()
         while(True):
             if not (self.lp.getProfile().strip() == self.lightpack_profile):
                 print("wrong profile: " + self.lp.getProfile().strip())
@@ -108,7 +108,6 @@ class Dimmer:
                 self.dim_to(self.h, self.s, self.v, self.brightness)
                 print("sleep for ~" + str(start_diff / 120) + " minutes")
                 sleep(start_diff / 2 + 1)
-        self.lp.unlock()
 
 dim = Dimmer()
 dim.run()
