@@ -46,7 +46,7 @@ class lightpack:
 		status = status.split(':')[1]
 		return status
 
-	def getGamma(self):
+	def getBrightness(self):
 		self.connection.send(b"getbrightness\n")
 		status = self.__readResult()
 		status = status.split(':')[1]

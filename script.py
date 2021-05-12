@@ -1,13 +1,20 @@
-import lightpack, configparser, os, colorsys
+import lightpack, labconv, scales, configparser, os, colorsys, random
 from datetime import datetime, timedelta
 from time import sleep
 
+STEPS = 255
 
-class Dimmer:
+class DimThis:
     def __init__(self):
         self.load_config()
         self.lp = lightpack.lightpack(self.lightpack_host, self.lightpack_port, None, self.lightpack_api_key)
         self.lp.connect()
+        self.lab = labconv.rgb_to_lab(tuple(i * 255.0 for i in colorsys.hsv_to_rgb(self.h / 255, self.s / 255, self.v / 255)))
+        if self.randomize: self.lab_rand = self.make_rand_of(self.lab, 20)
+        self.gamma = float(self.lp.getGamma())
+        self.brightness_start = self.lab[0] ** (1 / self.gamma)
+        self.brightness_end = self.brightness_start * (self.dim_amount / 100)
+        # print(self.lab, self.gamma, self.lum)
 
     def __del__(self):
         self.lp.disconnect()
@@ -28,28 +35,35 @@ class Dimmer:
         self.time_start = [(int(i[1:]) if i[0] == '0' else int(i)) for i in config.get('Time', 'start').split(':')]
         self.dim_duration = config.getint('Time', 'duration')
         self.time_end = [(int(i[1:]) if i[0] == '0' else int(i)) for i in config.get('Time', 'end').split(':')]
+        self.randomize = config.getboolean('Color', 'randomize')
         self.h = config.getint('Color', 'hue')
-        self.s = config.getint('Color', 'saturation_standard')
-        self.s_dim = config.getint('Color', 'saturation_dimmed')
-        self.v = config.getint('Color', 'value_standard')
-        self.v_dim = config.getint('Color', 'value_dimmend')
-        self.brightness = config.getint('Brightness', 'standard')
-        self.brightness_dim = config.getint('Brightness', 'dimmed')
-   
-    def dim_to(self, h, s, v, brightness):
+        self.s = config.getint('Color', 'saturation')
+        self.v = config.getint('Color', 'value')
+        self.dim_amount = config.getint('Dimming', 'amount')
 
-        r, g, b = self.hsv_rgb(h, s, v)
-
-        print((r, g, b), brightness)
+    def set_color(self, lab):
+        r, g, b = tuple(round(i) for i in labconv.lab_to_rgb(lab))
+        print("set color to: ", (r, g, b))
 
         self.lp.lock()
-        self.lp.setBrightness(round(brightness))
         self.lp.setColorToAll(r, g, b)
         self.lp.setPersistOnUnlock(True)
         self.lp.unlock()
 
-    def hsv_rgb(self, h, s, v):
-        return tuple(round(i * 255) for i in colorsys.hsv_to_rgb(h/255, s/255, v/255))
+    def make_rand_of(self, lab, distance):
+        a_new = labconv.within_range(random.randint(-distance, distance), -128, 127)
+        b_new = labconv.within_range(random.randint(-distance, distance), -128, 127)
+        return (lab[0], a_new, b_new)
+   
+    def dim(self, scale):
+        brightness_dim = scales.scale_linear(self.brightness_start, self.brightness_end, scale)
+        lab_dim = (brightness_dim ** self.gamma, self.lab[1], self.lab[2])
+        self.set_color(lab_dim)
+
+    def transition(self, scale):
+        a_trans = scales.scale_linear(self.lab_rand[1], self.lab[1], scale)
+        b_trans = scales.scale_linear(self.lab_rand[2], self.lab[2], scale)
+        self.set_color((self.lab[0], a_trans, b_trans))
 
     def check_time(self):
         local_time = datetime.now()
@@ -78,36 +92,30 @@ class Dimmer:
 
         return (is_between, abs(int((start_time - local_time).total_seconds())), abs(int((end_time - local_time).total_seconds())))
 
-    def scale_linear(self, start, end, scale):
-        return scale * end + (1 - scale) * start
-
     def run(self):
         while(True):
             if not (self.lp.getProfile().strip() == self.lightpack_profile):
                 print("wrong profile: " + self.lp.getProfile().strip())
                 break
             
-            dim_on, start_diff, end_diff = self.check_time()
+            is_between, start_diff, end_diff = self.check_time()
 
-            if dim_on:
+            if is_between:
                 if start_diff >= self.dim_duration * 60:
-                    self.dim_to(self.h, self.s_dim, self.v_dim, self.brightness_dim)
+                    self.dim(1)
                     print("sleep for ~" + str(end_diff / 120) + " minutes")
                     sleep(end_diff / 2 + 1)
                 else:
                     # dimming process
-                    scale = start_diff / (self.dim_duration * 60)
-
-                    s_scale = self.scale_linear(self.s, self.s_dim, scale)
-                    v_scale = self.scale_linear(self.v, self.v_dim, scale)
-                    brightness_scaled = self.scale_linear(self.brightness, self.brightness_dim, scale)
-
-                    self.dim_to(self.h, s_scale, v_scale, brightness_scaled)
-                    sleep(0.1)#(self.dim_duration * 60) / max(abs(self.s - self.s_dim), abs(self.v - self.v_dim))) # in seconds
+                    self.dim(start_diff / (self.dim_duration * 60))
+                    sleep((self.dim_duration * 60) / STEPS) # in seconds
+            elif self.randomize:
+                self.transition(min(start_diff, 3600) / 3600)
+                sleep(min(start_diff, 3600) / STEPS)
             else:
-                self.dim_to(self.h, self.s, self.v, self.brightness)
+                self.dim(0)
                 print("sleep for ~" + str(start_diff / 120) + " minutes")
                 sleep(start_diff / 2 + 1)
 
-dim = Dimmer()
-dim.run()
+plugin = DimThis()
+plugin.run()
