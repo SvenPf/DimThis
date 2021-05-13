@@ -10,7 +10,7 @@ class DimThis:
         self.lp = lightpack.lightpack(self.lightpack_host, self.lightpack_port, None, self.lightpack_api_key)
         self.lp.connect()
         self.lab = labconv.rgb_to_lab(tuple(i * 255.0 for i in colorsys.hsv_to_rgb(self.h / 255, self.s / 255, self.v / 255)))
-        if self.randomize: self.lab_rand = self.make_rand_of(self.lab, 20)
+        if self.randomize: self.lab_rand = self.make_rand_of(self.lab, self.closeness)
         self.gamma = float(self.lp.getGamma())
         self.brightness_start = self.lab[0] ** (1 / self.gamma)
         self.brightness_end = self.brightness_start * (self.dim_amount / 100)
@@ -35,7 +35,9 @@ class DimThis:
         self.time_start = [(int(i[1:]) if i[0] == '0' else int(i)) for i in config.get('Time', 'start').split(':')]
         self.dim_duration = config.getint('Time', 'duration')
         self.time_end = [(int(i[1:]) if i[0] == '0' else int(i)) for i in config.get('Time', 'end').split(':')]
+        self.trans_start = config.getint('Time', 'tstart')
         self.randomize = config.getboolean('Color', 'randomize')
+        self.closeness = config.getint('Color', 'closeness')
         self.h = config.getint('Color', 'hue')
         self.s = config.getint('Color', 'saturation')
         self.v = config.getint('Color', 'value')
@@ -51,8 +53,8 @@ class DimThis:
         self.lp.unlock()
 
     def make_rand_of(self, lab, distance):
-        a_new = labconv.within_range(random.randint(-distance, distance), -128, 127)
-        b_new = labconv.within_range(random.randint(-distance, distance), -128, 127)
+        a_new = labconv.within_range(lab[1] + random.randint(-distance, distance), -128, 127)
+        b_new = labconv.within_range(lab[2] + random.randint(-distance, distance), -128, 127)
         return (lab[0], a_new, b_new)
    
     def dim(self, scale):
@@ -108,10 +110,18 @@ class DimThis:
                 else:
                     # dimming process
                     self.dim(start_diff / (self.dim_duration * 60))
+                    print("sleep for ~" + str(self.dim_duration / STEPS) + " minutes")
                     sleep((self.dim_duration * 60) / STEPS) # in seconds
             elif self.randomize:
-                self.transition(min(start_diff, 3600) / 3600)
-                sleep(min(start_diff, 3600) / STEPS)
+                # transition process
+                if start_diff > (self.trans_start * 60):
+                    self.transition(0)
+                    print("sleep for ~" + str((start_diff - (self.trans_start * 60)) / 120) + " minutes")
+                    sleep((start_diff - (self.trans_start * 60)) / 2 + 1)
+                else:
+                    self.transition(1.0 - start_diff / (self.trans_start * 60))
+                    print("sleep for ~" + str(self.trans_start / STEPS) + " minutes")
+                    sleep((self.trans_start * 60) / STEPS)
             else:
                 self.dim(0)
                 print("sleep for ~" + str(start_diff / 120) + " minutes")
