@@ -47,10 +47,10 @@ class DimThis:
         r, g, b = tuple(round(i) for i in labconv.lab_to_rgb(lab))
         print("set color to: ", (r, g, b))
 
-        self.lp.lock()
+        # self.lp.lock()
         self.lp.setColorToAll(r, g, b)
-        self.lp.setPersistOnUnlock(True)
-        self.lp.unlock()
+        # self.lp.setPersistOnUnlock(False)
+        # self.lp.unlock()
 
     def make_rand_of(self, lab, distance):
         a_new = labconv.within_range(lab[1] + random.randint(-distance, distance), -128, 127)
@@ -95,6 +95,8 @@ class DimThis:
         return (is_between, abs(int((start_time - local_time).total_seconds())), abs(int((end_time - local_time).total_seconds())))
 
     def run(self):
+        self.lp.lock()
+        self.lp.turnOn()
         while(True):
             if not (self.lp.getProfile().strip() == self.lightpack_profile):
                 print("wrong profile: " + self.lp.getProfile().strip())
@@ -126,6 +128,8 @@ class DimThis:
                 self.dim(0)
                 print("sleep for ~" + str(start_diff / 120) + " minutes")
                 sleep(start_diff / 2 + 1)
+        self.lp.unlock()
 
 plugin = DimThis()
+sleep(1)
 plugin.run()
