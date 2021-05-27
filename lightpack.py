@@ -31,34 +31,32 @@ class lightpack:
 	def getProfile(self):
 		self.connection.send(b"getprofile\n")
 		profile = self.__readResult()
-		profile = profile.split(':')[1]
+		profile = profile.split(':')[1].rstrip()
 		return profile
 
 	def getStatus(self):
 		self.connection.send(b"getstatus\n")
 		status = self.__readResult()
-		status = status.split(':')[1]
+		status = status.split(':')[1].rstrip()
 		return status
 
 	def getGamma(self):
 		self.connection.send(b"getgamma\n")
 		status = self.__readResult()
-		status = status.split(':')[1]
+		status = status.split(':')[1].rstrip()
 		return status
 
 	def getBrightness(self):
 		self.connection.send(b"getbrightness\n")
 		status = self.__readResult()
-		status = status.split(':')[1]
+		status = status.split(':')[1].rstrip()
 		return status
 
-	# BROKEN IN VERSION 5.11.2.27
 	def getCountLeds(self):
-		# self.connection.send(b"getcountleds\n")
-		# count = self.__readResult()
-		# count = count.split(':')[1]
-		# return int(count)
-		return len(self.getLeds())
+		self.connection.send(b"getcountleds\n")
+		count = self.__readResult()
+		count = count.split(':')[1].rstrip()
+		return int(count)
 
 	def getLeds(self):
 		cmd = 'getleds\n'
@@ -101,7 +99,7 @@ class lightpack:
 	def getAPIStatus(self):
 		self.connection.send(b"getstatusapi\n")
 		status = self.__readResult()
-		status = status.split(':')[1]
+		status = status.split(':')[1].rstrip()
 		return status
 
 	def connect(self):

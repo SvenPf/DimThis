@@ -49,14 +49,14 @@ class DimThis:
 
         # self.lp.lock()
         self.lp.setColorToAll(r, g, b)
-        # self.lp.setPersistOnUnlock(False)
+        # self.lp.setPersistOnUnlock(True)
         # self.lp.unlock()
 
     def make_rand_of(self, lab, distance):
         a_new = labconv.within_range(lab[1] + random.randint(-distance, distance), -128, 127)
         b_new = labconv.within_range(lab[2] + random.randint(-distance, distance), -128, 127)
         return (lab[0], a_new, b_new)
-   
+
     def dim(self, scale):
         brightness_dim = scales.scale_linear(self.brightness_start, self.brightness_end, scale)
         lab_dim = (brightness_dim ** self.gamma, self.lab[1], self.lab[2])
@@ -75,7 +75,7 @@ class DimThis:
         is_between = False
 
         # 1. case: spanning two days e.g. start 23:00 - end 02:00
-        if end_time < start_time: 
+        if end_time < start_time:
             if local_time < end_time:
                 # localtime is between 00:00 - end_time
                 is_between = True
@@ -96,12 +96,12 @@ class DimThis:
 
     def run(self):
         self.lp.lock()
-        self.lp.turnOn()
+        if (self.lp.getStatus() == "off"): self.lp.turnOn()
         while(True):
             if not (self.lp.getProfile().strip() == self.lightpack_profile):
                 print("wrong profile: " + self.lp.getProfile().strip())
                 break
-            
+
             is_between, start_diff, end_diff = self.check_time()
 
             if is_between:
@@ -131,5 +131,5 @@ class DimThis:
         self.lp.unlock()
 
 plugin = DimThis()
-sleep(1)
+sleep(2)
 plugin.run()
